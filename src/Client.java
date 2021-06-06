@@ -19,7 +19,7 @@ public class Client extends JFrame implements Runnable, ActionListener {
     Socket socket;
     ObjectInputStream objectInputStream;
     ObjectOutputStream objectOutputStream;
-
+//
     Color color = Color.black;
 
     String nickname = "";
