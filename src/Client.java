@@ -8,16 +8,18 @@ import java.io.*;
 import java.net.Socket;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Base64;
 import java.util.Date;
 
 public class Client extends JFrame implements Runnable, ActionListener {
-    JPanel jPanel;
+    JPanel jPanel_message_history;
+
     JToolBar jToolBar;
     JButton jButton_send_to_server, jButton_connect_to_server, jButton_select_color;
 
     SendingObject sending_object_jTextField_mssg_input;
-    JTextArea jTextArea_mssg_history;
 
     Settings settings = new Settings(); //settings class
 
@@ -42,18 +44,18 @@ public class Client extends JFrame implements Runnable, ActionListener {
 
     JTextField jTextField_decrypt_password;
     String encryption_password;
-
+    List<JTextField> list_message_history = new ArrayList<>();
     boolean isEncrypted;
 
     public Client() { //konstruktor
         super("Client - Chat");
+        setLayout(new BorderLayout());
         setSize(settings.window_width, settings.window_heigh);
         setLocation((Toolkit.getDefaultToolkit().getScreenSize().width - getSize().width) / 2,
                 (Toolkit.getDefaultToolkit().getScreenSize().height - getSize().height) / 2);
         setIconImage(settings.imageIconClient);
 
 
-        jPanel = new JPanel(new BorderLayout());
         jToolBar = new JToolBar();
         jButton_send_to_server = new JButton(settings.image_icon_send);
         jButton_connect_to_server = new JButton(settings.image_icon_disconneted);
@@ -68,9 +70,6 @@ public class Client extends JFrame implements Runnable, ActionListener {
         jTextField_nickname_input.setPreferredSize(new Dimension(80, 34));
         jTextField_nickname_input.setMaximumSize(jTextField_nickname_input.getPreferredSize());
 
-        jTextArea_mssg_history = new JTextArea();
-        jTextArea_mssg_history.setEditable(false);
-
         jToolBar.add(jButton_connect_to_server);
 
         jToolBar.add(sending_object_jTextField_mssg_input);
@@ -81,8 +80,6 @@ public class Client extends JFrame implements Runnable, ActionListener {
         jToolBar.add(jButton_set_nickname);
 
 
-        jPanel.add(jToolBar, BorderLayout.SOUTH);
-        jPanel.add(jTextArea_mssg_history, BorderLayout.CENTER);
 
         jMenuBar = new JMenuBar();
         jMenu_file = new JMenu("FILE");
@@ -117,9 +114,16 @@ public class Client extends JFrame implements Runnable, ActionListener {
         jMenuItem_connection_connect_disconnect.addActionListener(this);
         isEncrypted=false;
 
-        jPanel.add(jMenuBar, BorderLayout.NORTH);
+        jPanel_message_history = new JPanel(new GridLayout(100,0));
 
-        setContentPane(jPanel);
+
+
+        add(BorderLayout.NORTH,jToolBar);
+        setJMenuBar(jMenuBar);
+        add(BorderLayout.CENTER,new JScrollPane(jPanel_message_history));
+
+
+
         setVisible(true);
 
         jButton_send_to_server.addActionListener(this);
@@ -130,9 +134,16 @@ public class Client extends JFrame implements Runnable, ActionListener {
         jmenuItem_encrypt_messages_on.addActionListener(this);
         jmenuItem_encrypt_messages_off.addActionListener(this);
 
+
     }
 
+    public void write(String text){
+        JTextField message = new JTextField(text);
+        list_message_history.add(message);
+        jPanel_message_history.add(message);
+        jPanel_message_history.updateUI();
 
+    }
     public static void main(String[] args) throws IOException {
         Client client = new Client();
         Thread thread = new Thread(client);
@@ -168,11 +179,11 @@ public class Client extends JFrame implements Runnable, ActionListener {
                         objectInputStream = new ObjectInputStream(socket.getInputStream());
                         SendingObject jTextField_received_message = (SendingObject) objectInputStream.readObject();
                         if (jTextField_received_message.isEncrypted){
-                            jTextArea_mssg_history.setText(jTextArea_mssg_history.getText() + "\n$$" + jTextField_received_message.get_nickname() + "   " + jTextField_received_message.get_date().substring(0, 8) + ":  " +
+                            write("$$" + jTextField_received_message.get_nickname() + "   " + jTextField_received_message.get_date().substring(0, 8) + ":  " +
                                     jTextField_received_message.getText());
                         }else{
-                        jTextArea_mssg_history.setText(jTextArea_mssg_history.getText() + "\n" + jTextField_received_message.get_nickname() + "   " + jTextField_received_message.get_date().substring(0, 8) + ":  " +
-                                jTextField_received_message.getText());
+                            write( jTextField_received_message.get_nickname() + "   " + jTextField_received_message.get_date().substring(0, 8) + ":  " +
+                                    jTextField_received_message.getText());
                         }
                     } catch (Exception ex) {
                         System.out.println("Disconnected");
@@ -193,28 +204,27 @@ public class Client extends JFrame implements Runnable, ActionListener {
         Object referer = e.getSource();
 
         if (referer == jButton_connect_to_server || referer == jMenuItem_connection_connect_disconnect) {
-            System.out.println("jbutton_connect");
             if (socket == null) { //not connected
                 try {
                     socket = new Socket(settings.host, settings.port);
                 } catch (IOException exception) {
                     System.out.println("CLIENT -> CONNECTION PROBLEM");
                     exception.printStackTrace();
-                    jTextArea_mssg_history.setText(jTextArea_mssg_history.getText() + "\nSYSTEM: Connection problem! Try again later (or just run the server)");
+                    write("SYSTEM: Connection problem! Try again later (or just run the server)");
 
                 }
                 if (socket.isConnected()) { //check if socket is connected
                     jButton_connect_to_server.setIcon(settings.image_icon_connected);//change image (connected image)
-                    jTextArea_mssg_history.setText(jTextArea_mssg_history.getText() + "\nSYSTEM: You are connected successfully!");
+                    write("SYSTEM: You are connected successfully!");
                 }
             } else {//Already connected
                 try {
                     socket.close();
-                    jTextArea_mssg_history.setText(jTextArea_mssg_history.getText() + "\nConnection closed!");
+                    write("SYSTEM: Connection closed!");
                     jButton_connect_to_server.setIcon(settings.image_icon_disconneted);
                     socket = null;
                 } catch (Exception ex) {
-                    jTextArea_mssg_history.setText(jTextArea_mssg_history.getText() + "\nClosing problem! Try again later!");
+                    write("SYSTEM: Closing problem! Try again later!");
                     ex.printStackTrace();
                 }
             }//else
@@ -236,7 +246,7 @@ public class Client extends JFrame implements Runnable, ActionListener {
                     ex.printStackTrace();
                 }
             } else {
-                jTextArea_mssg_history.setText(jTextArea_mssg_history.getText() + "\nYou have to set up your nickname!"); //jbutton_set_nickname below!
+                write("SYSTEM: You have to set up your nickname!"); //jbutton_set_nickname below!
             }
         } else if (referer == jButton_select_color) {
             color = JColorChooser.showDialog(this, "Choose JTextField color", color);
@@ -252,7 +262,7 @@ public class Client extends JFrame implements Runnable, ActionListener {
                 sending_object_jTextField_mssg_input.set_nickname(nickname);
 
             } else {
-                jTextArea_mssg_history.setText(jTextArea_mssg_history.getText() + "\nNickname can't be empty! Try again"); //jbutton_set_nickname below!
+                write("SYSTEM: Nickname can't be empty! Try again"); //jbutton_set_nickname below!
             }
 
         } else if (referer == jMenuItem_file_exit) {
@@ -262,9 +272,11 @@ public class Client extends JFrame implements Runnable, ActionListener {
                 String filename = "client" + Thread.currentThread().getId() + ".txt";
                 File file = new File(filename);
                 FileWriter fileWriter = new FileWriter(file);
-                System.out.println("Saved to the file!");
+                write("Saved to the file!");
 
-                fileWriter.write(jTextArea_mssg_history.getText());
+for (int i = 0; i < list_message_history.size();i++){
+                fileWriter.write(list_message_history.get(i).getText());
+}
                 fileWriter.close();
 
             } catch (Exception exception) {
@@ -273,17 +285,17 @@ public class Client extends JFrame implements Runnable, ActionListener {
         }else if(referer==jmenuItem_encrypt_messages_off){
             if (isEncrypted){
                 isEncrypted = false;
-                System.out.println("Encryption turned off");
+                write("SYSTEM: Encryption turned off");
             }else{
-                System.out.println("Encryption is already turned off");
+                write("SYSTEM: Encryption is already turned off");
             }
         }else if (referer==jmenuItem_encrypt_messages_on){
             if (!isEncrypted){
                 if (jTextField_decrypt_password.getText().isEmpty()){
-                    System.out.println("Firstly you have to enter you password");
+                    write("SYSTEM: Firstly you have to enter you password");
 
                 }else{
-                    System.out.println("Encryption turned on");
+                    write("SYSTEM: Encryption turned on");
                     isEncrypted=true;
                     encryption_password=jTextField_decrypt_password.getText();
 
@@ -297,7 +309,7 @@ public class Client extends JFrame implements Runnable, ActionListener {
                     }
                 }
             }else{
-                System.out.println("Encryption is already turned on");
+                write("SYSTEM: Encryption is already turned on");
             }
         }
 
