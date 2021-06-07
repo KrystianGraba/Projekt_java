@@ -5,9 +5,11 @@ import java.util.Date;
 
 public class SendingObject extends JTextField {
     public String nickname;
+    String message;
     Date date;
     boolean isEncrypted;
-Color color;
+    Color color;
+
     SendingObject() {
         super();
         isEncrypted = false;
@@ -29,12 +31,12 @@ Color color;
         SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("HH:mm:ss");
         return dateTimeFormatter.format(this.date);
     }
-public Color get_color(){
+    public Color get_color(){
         return this.color;
-}
-public void set_color(Color color){
+    }
+    public void set_color(Color color){
         this.color=color;
-}
+    }
     public void set_date(Date date) {
         this.date = date;
     }
@@ -42,5 +44,17 @@ public void set_color(Color color){
     public void set_encryption(boolean encryption){
         this.isEncrypted = encryption;
     }
+
+    public void set_message(String message){
+        this.message=message;
+    }
+    public String get_message(){
+        return this.message;
+    }
+
+    public boolean is_encrypted(){
+        return isEncrypted;
+    }
+
 
 }
