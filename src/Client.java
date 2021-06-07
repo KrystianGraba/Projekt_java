@@ -40,7 +40,7 @@ public class Client extends JFrame implements Runnable, ActionListener {
 
     JMenuItem jMenuItem_file_save, jMenuItem_file_exit;
     JMenuItem jMenuItem_connection_connect_disconnect;
-    JMenuItem jmenuItem_encrypt_messages_on, jmenuItem_encrypt_messages_off;
+    JMenuItem jmenuItem_encrypt_messages_on, jmenuItem_encrypt_messages_off, jMenuItem_decrypt;
 
     JTextField jTextField_decrypt_password;
     String encryption_password;
@@ -94,10 +94,12 @@ public class Client extends JFrame implements Runnable, ActionListener {
         jmenuItem_encrypt_messages_on = new JMenuItem("Encrypt messages ON");
         jmenuItem_encrypt_messages_off = new JMenuItem("Encrypt messages OFF");
         jTextField_decrypt_password = new JTextField("tajneHaslo");
+        jMenuItem_decrypt = new JMenuItem("Decrypt all messages");
 
         jMenu_Encryption.add(jmenuItem_encrypt_messages_on);
         jMenu_Encryption.add(jmenuItem_encrypt_messages_off);
         jMenu_Encryption.add(jTextField_decrypt_password);
+        jMenu_Encryption.add(jMenuItem_decrypt);
 
         jMenu_file.add(jMenuItem_file_save);
         jMenu_file.add(jMenuItem_file_exit);
@@ -133,14 +135,16 @@ public class Client extends JFrame implements Runnable, ActionListener {
 
         jmenuItem_encrypt_messages_on.addActionListener(this);
         jmenuItem_encrypt_messages_off.addActionListener(this);
+        jMenuItem_decrypt.addActionListener(this);
 
 
     }
 
-    public void write(String text){
-        JTextField message = new JTextField(text);
-        list_message_history.add(message);
-        jPanel_message_history.add(message);
+    public void write(String text, Color color){
+        JTextField jTextField_message = new JTextField(text);
+        jTextField_message.setBackground(color);
+        list_message_history.add(jTextField_message);
+        jPanel_message_history.add(jTextField_message);
         jPanel_message_history.updateUI();
 
     }
@@ -149,6 +153,20 @@ public class Client extends JFrame implements Runnable, ActionListener {
         Thread thread = new Thread(client);
         thread.start();
 
+    }
+
+    public void encrypt_decrypt_password(){
+        if (encryption_password != null){
+            encryption_password=jTextField_decrypt_password.getText();
+            if (encryption_password.length()>16){ //check key lenght
+                encryption_password = encryption_password.substring(0,16);
+            }else if(encryption_password.length() <16){
+                int x = 16- encryption_password.length();
+                for(int i = 0 ; i <x; i ++) {
+                    encryption_password = encryption_password + "0";
+                }
+            }
+        }
     }
 
     public void encrypt() throws NoSuchPaddingException, NoSuchAlgorithmException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException {
@@ -161,6 +179,27 @@ public class Client extends JFrame implements Runnable, ActionListener {
         byte[] encryptedByte = cipher.doFinal(plainTextByte);
         Base64.Encoder encoder = Base64.getEncoder();
         sending_object_jTextField_mssg_input.setText(encoder.encodeToString(encryptedByte));
+    }
+
+    public String decrypt(String to_decrypt) throws NoSuchPaddingException, NoSuchAlgorithmException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException {
+
+        Cipher cipher;
+        cipher = Cipher.getInstance("AES");
+        SecretKey secretKey = new SecretKeySpec(encryption_password.getBytes(), "AES");
+        byte[] plainTextByte = sending_object_jTextField_mssg_input.getText().getBytes();
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        byte[] encryptedByte = cipher.doFinal(plainTextByte);
+        Base64.Encoder encoder = Base64.getEncoder();
+        sending_object_jTextField_mssg_input.setText(encoder.encodeToString(encryptedByte));
+
+
+
+        Base64.Decoder decoder = Base64.getDecoder();
+        byte[] encryptedTextByte = decoder.decode(to_decrypt);
+        cipher.init(Cipher.DECRYPT_MODE, secretKey);
+        byte[] decryptedByte = cipher.doFinal(encryptedTextByte);
+        return new String(decryptedByte);
+
     }
 
     @Override
@@ -180,10 +219,11 @@ public class Client extends JFrame implements Runnable, ActionListener {
                         SendingObject jTextField_received_message = (SendingObject) objectInputStream.readObject();
                         if (jTextField_received_message.isEncrypted){
                             write("$$" + jTextField_received_message.get_nickname() + "   " + jTextField_received_message.get_date().substring(0, 8) + ":  " +
-                                    jTextField_received_message.getText());
+                                    jTextField_received_message.getText(),jTextField_received_message.get_color());
+
                         }else{
                             write( jTextField_received_message.get_nickname() + "   " + jTextField_received_message.get_date().substring(0, 8) + ":  " +
-                                    jTextField_received_message.getText());
+                                    jTextField_received_message.getText(),jTextField_received_message.color);
                         }
                     } catch (Exception ex) {
                         System.out.println("Disconnected");
@@ -210,21 +250,21 @@ public class Client extends JFrame implements Runnable, ActionListener {
                 } catch (IOException exception) {
                     System.out.println("CLIENT -> CONNECTION PROBLEM");
                     exception.printStackTrace();
-                    write("SYSTEM: Connection problem! Try again later (or just run the server)");
+                    write("SYSTEM: Connection problem! Try again later (or just run the server)",Color.RED);
 
                 }
                 if (socket.isConnected()) { //check if socket is connected
                     jButton_connect_to_server.setIcon(settings.image_icon_connected);//change image (connected image)
-                    write("SYSTEM: You are connected successfully!");
+                    write("SYSTEM: You are connected successfully!",Color.GREEN);
                 }
             } else {//Already connected
                 try {
                     socket.close();
-                    write("SYSTEM: Connection closed!");
+                    write("SYSTEM: Connection closed!",Color.RED);
                     jButton_connect_to_server.setIcon(settings.image_icon_disconneted);
                     socket = null;
                 } catch (Exception ex) {
-                    write("SYSTEM: Closing problem! Try again later!");
+                    write("SYSTEM: Closing problem! Try again later!",Color.RED);
                     ex.printStackTrace();
                 }
             }//else
@@ -237,6 +277,7 @@ public class Client extends JFrame implements Runnable, ActionListener {
                         encrypt();
                     }
                     sending_object_jTextField_mssg_input.set_date(new Date(System.currentTimeMillis()));
+                    sending_object_jTextField_mssg_input.set_color(color);
                     objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
                     objectOutputStream.writeObject(sending_object_jTextField_mssg_input);
                     objectOutputStream.flush();
@@ -246,7 +287,7 @@ public class Client extends JFrame implements Runnable, ActionListener {
                     ex.printStackTrace();
                 }
             } else {
-                write("SYSTEM: You have to set up your nickname!"); //jbutton_set_nickname below!
+                write("SYSTEM: You have to set up your nickname!",Color.RED); //jbutton_set_nickname below!
             }
         } else if (referer == jButton_select_color) {
             color = JColorChooser.showDialog(this, "Choose JTextField color", color);
@@ -262,7 +303,7 @@ public class Client extends JFrame implements Runnable, ActionListener {
                 sending_object_jTextField_mssg_input.set_nickname(nickname);
 
             } else {
-                write("SYSTEM: Nickname can't be empty! Try again"); //jbutton_set_nickname below!
+                write("SYSTEM: Nickname can't be empty! Try again",Color.RED); //jbutton_set_nickname below!
             }
 
         } else if (referer == jMenuItem_file_exit) {
@@ -271,12 +312,12 @@ public class Client extends JFrame implements Runnable, ActionListener {
             try {
                 String filename = "client" + Thread.currentThread().getId() + ".txt";
                 File file = new File(filename);
-                FileWriter fileWriter = new FileWriter(file);
-                write("Saved to the file!");
+                FileWriter fileWriter = new FileWriter(file + "\n");
+                write("Saved to the file!",Color.GREEN);
 
-for (int i = 0; i < list_message_history.size();i++){
-                fileWriter.write(list_message_history.get(i).getText());
-}
+                for (int i = 0; i < list_message_history.size();i++){
+                    fileWriter.write(list_message_history.get(i).getText());
+                }
                 fileWriter.close();
 
             } catch (Exception exception) {
@@ -285,31 +326,47 @@ for (int i = 0; i < list_message_history.size();i++){
         }else if(referer==jmenuItem_encrypt_messages_off){
             if (isEncrypted){
                 isEncrypted = false;
-                write("SYSTEM: Encryption turned off");
+                write("SYSTEM: Encryption turned off",Color.BLACK);
             }else{
-                write("SYSTEM: Encryption is already turned off");
+                write("SYSTEM: Encryption is already turned off",Color.BLACK);
             }
         }else if (referer==jmenuItem_encrypt_messages_on){
             if (!isEncrypted){
                 if (jTextField_decrypt_password.getText().isEmpty()){
-                    write("SYSTEM: Firstly you have to enter you password");
+                    write("SYSTEM: Firstly you have to enter you encryption password",Color.RED);
 
                 }else{
-                    write("SYSTEM: Encryption turned on");
+                    write("SYSTEM: Encryption turned on",Color.BLACK);
                     isEncrypted=true;
                     encryption_password=jTextField_decrypt_password.getText();
 
-                    if (encryption_password.length()>16){ //check key lenght
-                        encryption_password = encryption_password.substring(0,16);
-                    }else if(encryption_password.length() <16){
-                        int x = 16- encryption_password.length();
-                        for(int i = 0 ; i <x; i ++) {
-                            encryption_password = encryption_password + "0";
+                    encrypt_decrypt_password();
+
+                }
+            }
+            else{
+                write("SYSTEM: Encryption is already turned on", Color.BLACK);
+            }
+        }else if (referer == jMenuItem_decrypt){
+            if (jTextField_decrypt_password.getText().isEmpty()){
+                write("SYSTEM: Firstly you have to enter decrypt password",Color.RED);
+
+            }else{
+                write("SYSTEM: Decrypting starting!",Color.BLACK);
+
+                encrypt_decrypt_password();
+                for(int i =0; i < list_message_history.size();i++){
+                    String text = list_message_history.get(i).getText();
+                    if (text.substring(0,2).equals("$$")){
+
+                        text = text.replaceAll("^\\$\\$[a-zA-Z0-9]*   [0-9][0-9]:[0-9][0-9]:[0-9][0-9]:  ","");
+                        try{
+                            text = decrypt(text);
+                        }catch(Exception ex){
+                            ex.printStackTrace();
                         }
                     }
                 }
-            }else{
-                write("SYSTEM: Encryption is already turned on");
             }
         }
 
