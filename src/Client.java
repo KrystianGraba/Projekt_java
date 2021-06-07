@@ -1,9 +1,14 @@
+import javax.crypto.*;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.Socket;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Date;
 
 public class Client extends JFrame implements Runnable, ActionListener {
@@ -19,7 +24,7 @@ public class Client extends JFrame implements Runnable, ActionListener {
     Socket socket;
     ObjectInputStream objectInputStream;
     ObjectOutputStream objectOutputStream;
-//
+    //
     Color color = Color.black;
 
     String nickname = "";
@@ -29,10 +34,16 @@ public class Client extends JFrame implements Runnable, ActionListener {
 
 
     JMenuBar jMenuBar;
-    JMenu jMenu_file, jMenu_Connection;
+    JMenu jMenu_file, jMenu_Connection, jMenu_Encryption;
+
     JMenuItem jMenuItem_file_save, jMenuItem_file_exit;
     JMenuItem jMenuItem_connection_connect_disconnect;
+    JMenuItem jmenuItem_encrypt_messages_on, jmenuItem_encrypt_messages_off;
 
+    JTextField jTextField_decrypt_password;
+    String encryption_password;
+
+    boolean isEncrypted;
 
     public Client() { //konstruktor
         super("Client - Chat");
@@ -76,11 +87,20 @@ public class Client extends JFrame implements Runnable, ActionListener {
         jMenuBar = new JMenuBar();
         jMenu_file = new JMenu("FILE");
         jMenu_Connection = new JMenu("CONNECTION");
+        jMenu_Encryption = new JMenu("ENCRYPTION");
 
         jMenuItem_file_exit = new JMenuItem("EXIT");
         jMenuItem_file_save = new JMenuItem("Save chat history to the file");
 
         jMenuItem_connection_connect_disconnect = new JMenuItem("Connect/Disconnect");
+
+        jmenuItem_encrypt_messages_on = new JMenuItem("Encrypt messages ON");
+        jmenuItem_encrypt_messages_off = new JMenuItem("Encrypt messages OFF");
+        jTextField_decrypt_password = new JTextField("tajneHaslo");
+
+        jMenu_Encryption.add(jmenuItem_encrypt_messages_on);
+        jMenu_Encryption.add(jmenuItem_encrypt_messages_off);
+        jMenu_Encryption.add(jTextField_decrypt_password);
 
         jMenu_file.add(jMenuItem_file_save);
         jMenu_file.add(jMenuItem_file_exit);
@@ -89,12 +109,13 @@ public class Client extends JFrame implements Runnable, ActionListener {
 
         jMenuBar.add(jMenu_file);
         jMenuBar.add(jMenu_Connection);
+        jMenuBar.add(jMenu_Encryption);
 
         jMenuItem_file_save.addActionListener(this);
         jMenuItem_file_exit.addActionListener(this);
 
         jMenuItem_connection_connect_disconnect.addActionListener(this);
-
+        isEncrypted=false;
 
         jPanel.add(jMenuBar, BorderLayout.NORTH);
 
@@ -106,6 +127,9 @@ public class Client extends JFrame implements Runnable, ActionListener {
         jButton_select_color.addActionListener(this);
         jButton_set_nickname.addActionListener(this);
 
+        jmenuItem_encrypt_messages_on.addActionListener(this);
+        jmenuItem_encrypt_messages_off.addActionListener(this);
+
     }
 
 
@@ -116,6 +140,17 @@ public class Client extends JFrame implements Runnable, ActionListener {
 
     }
 
+    public void encrypt() throws NoSuchPaddingException, NoSuchAlgorithmException, BadPaddingException, IllegalBlockSizeException, InvalidKeyException {
+
+        Cipher cipher;
+        cipher = Cipher.getInstance("AES");
+        SecretKey secretKey = new SecretKeySpec(encryption_password.getBytes(), "AES");
+        byte[] plainTextByte =        sending_object_jTextField_mssg_input.getText().getBytes();
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        byte[] encryptedByte = cipher.doFinal(plainTextByte);
+        Base64.Encoder encoder = Base64.getEncoder();
+        sending_object_jTextField_mssg_input.setText(encoder.encodeToString(encryptedByte));
+    }
 
     @Override
     public void run() {
@@ -132,8 +167,13 @@ public class Client extends JFrame implements Runnable, ActionListener {
                     try {
                         objectInputStream = new ObjectInputStream(socket.getInputStream());
                         SendingObject jTextField_received_message = (SendingObject) objectInputStream.readObject();
+                        if (jTextField_received_message.isEncrypted){
+                            jTextArea_mssg_history.setText(jTextArea_mssg_history.getText() + "\n$$" + jTextField_received_message.get_nickname() + "   " + jTextField_received_message.get_date().substring(0, 8) + ":  " +
+                                    jTextField_received_message.getText());
+                        }else{
                         jTextArea_mssg_history.setText(jTextArea_mssg_history.getText() + "\n" + jTextField_received_message.get_nickname() + "   " + jTextField_received_message.get_date().substring(0, 8) + ":  " +
                                 jTextField_received_message.getText());
+                        }
                     } catch (Exception ex) {
                         System.out.println("Disconnected");
 
@@ -181,9 +221,11 @@ public class Client extends JFrame implements Runnable, ActionListener {
 
         } else if (referer == jButton_send_to_server) {
             if (!nickname.equals("")) {
-                System.out.println("jbutton_send");
-
                 try {
+                    sending_object_jTextField_mssg_input.set_encryption(isEncrypted);
+                    if (isEncrypted){
+                        encrypt();
+                    }
                     sending_object_jTextField_mssg_input.set_date(new Date(System.currentTimeMillis()));
                     objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
                     objectOutputStream.writeObject(sending_object_jTextField_mssg_input);
@@ -228,10 +270,44 @@ public class Client extends JFrame implements Runnable, ActionListener {
             } catch (Exception exception) {
                 exception.printStackTrace();
             }
-        } else {
+        }else if(referer==jmenuItem_encrypt_messages_off){
+            if (isEncrypted){
+                isEncrypted = false;
+                System.out.println("Encryption turned off");
+            }else{
+                System.out.println("Encryption is already turned off");
+            }
+        }else if (referer==jmenuItem_encrypt_messages_on){
+            if (!isEncrypted){
+                if (jTextField_decrypt_password.getText().isEmpty()){
+                    System.out.println("Firstly you have to enter you password");
+
+                }else{
+                    System.out.println("Encryption turned on");
+                    isEncrypted=true;
+                    encryption_password=jTextField_decrypt_password.getText();
+
+                    if (encryption_password.length()>16){ //check key lenght
+                        encryption_password = encryption_password.substring(0,16);
+                    }else if(encryption_password.length() <16){
+                        int x = 16- encryption_password.length();
+                        for(int i = 0 ; i <x; i ++) {
+                            encryption_password = encryption_password + "0";
+                        }
+                    }
+                }
+            }else{
+                System.out.println("Encryption is already turned on");
+            }
+        }
+
+        else {
             System.out.println("Client-> actionPerformed else");
         }
     }//actionPerformed
 }//class
 
 
+//szyfruje wiadomosci
+//zrobic decipher
+//zrobic gridlayout z jtextfield

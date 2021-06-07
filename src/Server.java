@@ -12,7 +12,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Krystian_Graba extends JFrame implements Runnable, ActionListener {
+public class Server extends JFrame implements Runnable, ActionListener {
     JPanel jPanel;
     JToolBar jToolBar;
     JButton jbutton_show_clients;
@@ -39,7 +39,7 @@ public class Krystian_Graba extends JFrame implements Runnable, ActionListener {
     JMenuItem jMenuItem_file_save, jMenuItem_file_exit;
 
 
-    public Krystian_Graba() throws IOException { //konstruktor
+    public Server() throws IOException { //konstruktor
         super("Serwer - Chat");
         setSize(ustawienia.window_width, ustawienia.window_heigh);
         setLocation((Toolkit.getDefaultToolkit().getScreenSize().width - getSize().width) / 10,
@@ -181,7 +181,7 @@ public class Krystian_Graba extends JFrame implements Runnable, ActionListener {
     }//constructor
 
     public static void main(String[] args) throws IOException {
-        new Krystian_Graba();
+        new Server();
     }
 
 

@@ -5,9 +5,11 @@ import java.util.Date;
 public class SendingObject extends JTextField {
     public String nickname;
     Date date;
+    boolean isEncrypted;
 
     SendingObject() {
         super();
+        isEncrypted = false;
     }
 
     SendingObject(String nickname) {
@@ -29,6 +31,10 @@ public class SendingObject extends JTextField {
 
     public void set_date(Date date) {
         this.date = date;
+    }
+
+    public void set_encryption(boolean encryption){
+        this.isEncrypted = encryption;
     }
 
 }
